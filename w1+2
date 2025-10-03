@@ -1,0 +1,113 @@
+
+#include <iostream>
+#include <vector>
+#include <cstdlib>
+#include <omp.h>
+#include <algorithm> 
+
+using namespace std;
+
+void generate_matrix(vector<vector<int>>& mat, int rows, int cols) {
+    for (int i = 0; i < rows; i++)
+        for (int j = 0; j < cols; j++)
+            mat[i][j] = rand() % 1000;
+}
+
+void add_matrix_seq(const vector<vector<int>>& A, const vector<vector<int>>& B, vector<vector<int>>& C, int rows, int cols) {
+    for (int i = 0; i < rows; i++)
+        for (int j = 0; j < cols; j++)
+            C[i][j] = A[i][j] + B[i][j];
+}
+
+void add_matrix_omp(const vector<vector<int>>& A, const vector<vector<int>>& B, vector<vector<int>>& C, int rows, int cols) {
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < rows; i++)
+        for (int j = 0; j < cols; j++)
+            C[i][j] = A[i][j] + B[i][j];
+}
+
+void selection_sort_seq(vector<double>& arr) {
+    int n = arr.size();
+    for (int i = 0; i < n - 1; i++) {
+        int min_idx = i;
+        for (int j = i + 1; j < n; j++) {
+            if (arr[j] < arr[min_idx]) min_idx = j;
+        }
+        swap(arr[i], arr[min_idx]);
+    }
+}
+
+void selection_sort_omp(vector<double>& arr) {
+    int n = arr.size();
+    for (int i = 0; i < n - 1; i++) {
+        int min_idx = i;
+        double min_val = arr[i];
+
+        #pragma omp parallel
+        {
+            int local_min_idx = min_idx;
+            double local_min_val = min_val;
+
+            #pragma omp for nowait
+            for (int j = i + 1; j < n; j++) {
+                if (arr[j] < local_min_val) {
+                    local_min_val = arr[j];
+                    local_min_idx = j;
+                }
+            }
+
+            #pragma omp critical
+            {
+                if (local_min_val < min_val) {
+                    min_val = local_min_val;
+                    min_idx = local_min_idx;
+                }
+            }
+        }
+        swap(arr[i], arr[min_idx]);
+    }
+}
+
+int main() {
+    srand(42);
+    int rows = 100, cols = 2000;
+
+    vector<vector<int>> A(rows, vector<int>(cols));
+    vector<vector<int>> B(rows, vector<int>(cols));
+    vector<vector<int>> C(rows, vector<int>(cols));
+
+    generate_matrix(A, rows, cols);
+    generate_matrix(B, rows, cols);
+
+    double start, end;
+
+    start = omp_get_wtime();
+    add_matrix_seq(A, B, C, rows, cols);
+    end = omp_get_wtime();
+    cout << "Thoi gian cong ma tran (tuan tu): " << end - start << " giay\n";
+
+    start = omp_get_wtime();
+    add_matrix_omp(A, B, C, rows, cols);
+    end = omp_get_wtime();
+    cout << "Thoi gian cong ma tran (OMP): " << end - start << " giay\n";
+
+
+    int n = 100000;
+    vector<double> arr(n), arr_copy;
+    for (int i = 0; i < n; i++) arr[i] = (rand() % 100000) / 100.0;
+
+    arr_copy = arr;
+    start = omp_get_wtime();
+    selection_sort_seq(arr_copy);
+    end = omp_get_wtime();
+    cout << "Thoi gian Selection Sort (tuan tu): " << end - start << " giay\n";
+
+    arr_copy = arr;
+    start = omp_get_wtime();
+    selection_sort_omp(arr_copy);
+    end = omp_get_wtime();
+    cout << "Thoi gian Selection Sort (OMP): " << end - start << " giay\n";
+
+    return 0;
+}
+```
